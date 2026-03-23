@@ -1,0 +1,4 @@
+-keep class com.soorya.wealthmanager.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-dontwarn okhttp3.**
+-dontwarn retrofit2.**

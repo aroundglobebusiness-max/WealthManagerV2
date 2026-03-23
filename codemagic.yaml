@@ -1,0 +1,13 @@
+workflows:
+  android-workflow:
+    name: Wealth Manager Build
+    max_build_duration: 60
+    environment:
+      java: 17
+    scripts:
+      - name: Build APK
+        script: |
+          cd $CM_BUILD_DIR
+          gradle assembleDebug
+    artifacts:
+      - app/build/outputs/**/*.apk
