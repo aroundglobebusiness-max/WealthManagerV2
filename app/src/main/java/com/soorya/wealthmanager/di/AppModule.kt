@@ -47,14 +47,3 @@ object AppModule {
             .addConverterFactory(GsonConverterFactory.create()).build()
             .create(NotionApi::class.java)
 }
-
-@Module
-@InstallIn(SingletonComponent::class)
-object AuthModule {
-    @Provides @Singleton
-    fun provideAuthInterceptor(prefs: com.soorya.wealthmanager.util.PreferencesManager): okhttp3.Interceptor {
-        return okhttp3.Interceptor { chain ->
-            chain.proceed(chain.request())
-        }
-    }
-}
