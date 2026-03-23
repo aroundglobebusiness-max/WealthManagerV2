@@ -11,6 +11,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -172,7 +173,7 @@ fun AddTransactionScreen(onDismiss: () -> Unit, vm: AddViewModel = hiltViewModel
                                 onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.applySuggestion(sugg) },
                                 label = { Text(sugg, style = MaterialTheme.typography.labelMedium) },
                                 colors = AssistChipDefaults.assistChipColors(containerColor = PearlSurface, labelColor = InkBlack),
-                                border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = PearlBorder)
+                                border = AssistChipDefaults.assistChipBorder( borderColor = PearlBorder)
                             )
                         }
                     }
