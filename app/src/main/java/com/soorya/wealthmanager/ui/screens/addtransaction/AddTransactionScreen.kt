@@ -2,6 +2,8 @@ package com.soorya.wealthmanager.ui.screens.addtransaction
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -9,7 +11,6 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -43,8 +44,8 @@ data class AddState(
     val isSaving: Boolean = false
 )
 
-val EXPENSE_CATS = listOf("⛽ Petrol", "🍽 Food", "🛍 Shopping", "🚌 Transport", "💊 Health", "🏠 Rent", "📱 Bills", "🎬 Entertainment", "✈️ Travel", "📚 Education", "↔️ Transfer", "💳 Other")
-val INCOME_CATS = listOf("💼 Salary", "💻 Freelance", "📈 Investment", "🎁 Gift", "💰 Refund", "🏦 Business", "💳 Other")
+val EXPENSE_CATS = listOf("⛽ Petrol","🍽 Food","🛍 Shopping","🚌 Transport","💊 Health","🏠 Rent","📱 Bills","🎬 Entertainment","✈️ Travel","📚 Education","↔️ Transfer","💳 Other")
+val INCOME_CATS = listOf("💼 Salary","💻 Freelance","📈 Investment","🎁 Gift","💰 Refund","🏦 Business","💳 Other")
 
 @HiltViewModel
 class AddViewModel @Inject constructor(
@@ -111,7 +112,7 @@ fun AddTransactionScreen(onDismiss: () -> Unit, vm: AddViewModel = hiltViewModel
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                 .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                 .background(PearlLight)
-                .clickable(enabled = false) {}
+                .clickable(enabled = false, onClick = {})
                 .navigationBarsPadding().imePadding()
         ) {
             SheetHandle()
@@ -161,43 +162,45 @@ fun AddTransactionScreen(onDismiss: () -> Unit, vm: AddViewModel = hiltViewModel
                     )
                 }
 
-                // Title
                 WInput(value = s.title, onValueChange = { vm.setTitle(it); vm.loadSuggestions(it) }, placeholder = "What was this for?",
                     leadingIcon = { Icon(Icons.Rounded.Edit, null, tint = InkMuted, modifier = Modifier.size(18.dp)) })
 
-                // Suggestions
                 if (s.suggestions.isNotEmpty()) {
-                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.foundation.lazy.items(s.suggestions) { sugg ->
-                            SuggestionChip(
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(s.suggestions) { sugg ->
+                            AssistChip(
                                 onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.applySuggestion(sugg) },
                                 label = { Text(sugg, style = MaterialTheme.typography.labelMedium) },
-                                colors = SuggestionChipDefaults.suggestionChipColors(containerColor = PearlSurface, labelColor = InkBlack),
-                                border = SuggestionChipDefaults.suggestionChipBorder(enabled = true, borderColor = PearlBorder)
+                                colors = AssistChipDefaults.assistChipColors(containerColor = PearlSurface, labelColor = InkBlack),
+                                border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = PearlBorder)
                             )
                         }
                     }
                 }
 
-                // Note
                 WInput(value = s.note, onValueChange = vm::setNote, placeholder = "Note (optional)",
                     leadingIcon = { Icon(Icons.Rounded.Notes, null, tint = InkMuted, modifier = Modifier.size(18.dp)) })
 
-                // Category
                 Text("Category", style = MaterialTheme.typography.labelMedium.copy(color = InkMuted))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    cats.forEach { cat ->
-                        val sel = s.category == cat
-                        FilterChip(
-                            selected = sel,
-                            onClick = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.setCategory(cat) },
-                            label = { Text(cat, style = MaterialTheme.typography.labelMedium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = InkBlack, selectedLabelColor = PearlLight,
-                                containerColor = PearlSurface, labelColor = InkLight
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(enabled = true, selected = sel, selectedBorderColor = Color.Transparent, borderColor = PearlBorder)
-                        )
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cats.chunked(3).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { cat ->
+                                val sel = s.category == cat
+                                Box(
+                                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                                        .background(if (sel) InkBlack else PearlSurface)
+                                        .border(1.dp, if (sel) InkBlack else PearlBorder, RoundedCornerShape(10.dp))
+                                        .clickable { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); vm.setCategory(cat) }
+                                        .padding(8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(cat, style = MaterialTheme.typography.labelSmall.copy(color = if (sel) PearlLight else InkLight), maxLines = 1)
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
                     }
                 }
 

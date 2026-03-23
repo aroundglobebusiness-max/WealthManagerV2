@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -22,9 +21,9 @@ import com.soorya.wealthmanager.ui.theme.*
 import com.soorya.wealthmanager.util.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
-import java.text.SimpleDateFormat
-import java.util.*
 
 data class ReportState(
     val totalIncome: Double = 0.0,
@@ -49,7 +48,8 @@ class ReportsViewModel @Inject constructor(
         viewModelScope.launch {
             val cal = Calendar.getInstance()
             val end = cal.timeInMillis
-            cal.set(Calendar.DAY_OF_MONTH, 1); cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
             val start = cal.timeInMillis
 
             combine(
@@ -57,21 +57,20 @@ class ReportsViewModel @Inject constructor(
                 repo.expenseInRange(start, end),
                 repo.getAll(),
                 prefs.symbol
-            ) { income, expense, all, sym ->
+            ) { arr ->
+                val income = arr[0] as Double
+                val expense = arr[1] as Double
+                @Suppress("UNCHECKED_CAST")
+                val all = arr[2] as List<Transaction>
+                val sym = arr[3] as String
                 val breakdown = all
                     .filter { it.type == TransactionType.EXPENSE }
                     .groupBy { it.category }
-                    .mapValues { (_, txns) -> txns.sumOf { it.amount } }
+                    .mapValues { (_, t) -> t.sumOf { it.amount } }
                     .entries.sortedByDescending { it.value }
                     .take(6)
                     .associate { it.key to it.value }
-
-                ReportState(
-                    totalIncome = income,
-                    totalExpense = expense,
-                    categoryBreakdown = breakdown,
-                    symbol = sym
-                )
+                ReportState(totalIncome = income, totalExpense = expense, categoryBreakdown = breakdown, symbol = sym)
             }.collect { _state.value = it }
         }
     }
@@ -83,10 +82,7 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = hiltViewModel()) {
     val total = s.categoryBreakdown.values.sum()
 
     Scaffold(containerColor = Pearl) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
-        ) {
-            // Top Bar
+        Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             Row(
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -97,40 +93,24 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = hiltViewModel()) {
                 Text("Reports", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
             }
 
-            Column(
-                modifier = Modifier.padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Month Summary
+            Column(modifier = Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 SectionLabel("This Month")
                 Column(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(InkBlack).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text("Balance", style = MaterialTheme.typography.bodySmall.copy(color = InkFaint))
-                            Text(
-                                "${s.symbol}${formatAmt(s.balance)}",
-                                style = MaterialTheme.typography.headlineMedium.copy(color = PearlLight, fontWeight = FontWeight.Bold)
-                            )
+                            Text("${s.symbol}${formatAmt(s.balance)}", style = MaterialTheme.typography.headlineMedium.copy(color = PearlLight, fontWeight = FontWeight.Bold))
                         }
-                        // Savings Rate Badge
                         Box(
-                            modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(
-                                if (s.savingsRate >= 0) Color(0xFF1A4A2A) else Color(0xFF4A1A1A)
-                            ).padding(horizontal = 14.dp, vertical = 6.dp)
+                            modifier = Modifier.clip(RoundedCornerShape(20.dp))
+                                .background(if (s.savingsRate >= 0) Color(0xFF1A4A2A) else Color(0xFF4A1A1A))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                "${if (s.savingsRate >= 0) "+" else ""}${s.savingsRate}% savings",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = if (s.savingsRate >= 0) Color(0xFF7AE89A) else Color(0xFFE87A7A)
-                                )
-                            )
+                            Text("${if (s.savingsRate >= 0) "+" else ""}${s.savingsRate}% savings",
+                                style = MaterialTheme.typography.labelMedium.copy(color = if (s.savingsRate >= 0) Color(0xFF7AE89A) else Color(0xFFE87A7A)))
                         }
                     }
                     WDivider()
@@ -146,12 +126,9 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = hiltViewModel()) {
                     }
                 }
 
-                // Category Breakdown
                 if (s.categoryBreakdown.isNotEmpty()) {
                     SectionLabel("Spending by Category")
-                    Column(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(PearlLight).border(1.dp, PearlBorder, RoundedCornerShape(16.dp))
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(PearlLight).border(1.dp, PearlBorder, RoundedCornerShape(16.dp))) {
                         s.categoryBreakdown.entries.forEachIndexed { i, (cat, amount) ->
                             val pct = if (total > 0) (amount / total).toFloat() else 0f
                             Column(modifier = Modifier.fillMaxWidth()) {
@@ -164,10 +141,7 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = hiltViewModel()) {
                                         Text(getCategoryEmoji(cat), style = MaterialTheme.typography.titleMedium)
                                         Column {
                                             Text(cat.replace(Regex("^[^\\w\\s]+\\s*"), ""), style = MaterialTheme.typography.titleSmall)
-                                            // Progress bar
-                                            Box(
-                                                modifier = Modifier.width(120.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(PearlBorder)
-                                            ) {
+                                            Box(modifier = Modifier.width(120.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(PearlBorder)) {
                                                 Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(pct).background(InkBlack))
                                             }
                                         }
@@ -182,7 +156,6 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = hiltViewModel()) {
                         }
                     }
                 }
-
                 Spacer(Modifier.height(32.dp))
             }
         }

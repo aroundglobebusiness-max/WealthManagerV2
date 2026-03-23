@@ -10,7 +10,6 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -56,22 +55,32 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             val cal = Calendar.getInstance()
             val end = cal.timeInMillis
-            cal.set(Calendar.DAY_OF_MONTH, 1); cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
             val start = cal.timeInMillis
 
             combine(
-                repo.totalIncome(), repo.totalExpense(),
-                repo.incomeInRange(start, end), repo.expenseInRange(start, end),
-                repo.getRecent(), prefs.symbol
-            ) { vals ->
+                repo.totalIncome(),
+                repo.totalExpense(),
+                repo.incomeInRange(start, end),
+                repo.expenseInRange(start, end),
+                repo.getRecent(),
+                prefs.symbol
+            ) { arr ->
+                val income = arr[0] as Double
+                val expense = arr[1] as Double
+                val mIncome = arr[2] as Double
+                val mExpense = arr[3] as Double
+                @Suppress("UNCHECKED_CAST")
+                val txns = arr[4] as List<Transaction>
+                val sym = arr[5] as String
                 DashboardState(
-                    totalIncome = vals[0] as Double,
-                    totalExpense = vals[1] as Double,
-                    monthlyIncome = vals[2] as Double,
-                    monthlyExpense = vals[3] as Double,
-                    @Suppress("UNCHECKED_CAST")
-                    recent = vals[4] as List<Transaction>,
-                    symbol = vals[5] as String
+                    totalIncome = income,
+                    totalExpense = expense,
+                    monthlyIncome = mIncome,
+                    monthlyExpense = mExpense,
+                    recent = txns,
+                    symbol = sym
                 )
             }.collect { _state.value = it }
         }
@@ -117,12 +126,9 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
-            // Header
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -141,24 +147,16 @@ fun DashboardScreen(
                 }
             }
 
-            // Balance Card
             item {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(InkBlack)
-                        .padding(28.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(20.dp)).background(InkBlack).padding(28.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Total Balance", style = MaterialTheme.typography.bodySmall.copy(color = InkFaint))
                         Text(
                             "${s.symbol}${"%,.0f".format(s.balance)}",
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                color = PearlLight,
-                                fontWeight = FontWeight.Bold
-                            )
+                            style = MaterialTheme.typography.displayMedium.copy(color = PearlLight, fontWeight = FontWeight.Bold)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -176,11 +174,11 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Sync message
             s.syncMsg?.let { msg ->
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(10.dp)).background(PearlSurface).padding(12.dp, 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                            .clip(RoundedCornerShape(10.dp)).background(PearlSurface).padding(12.dp, 10.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -193,7 +191,6 @@ fun DashboardScreen(
                 }
             }
 
-            // Quick Actions
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -205,7 +202,6 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // Recent
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -228,7 +224,9 @@ fun DashboardScreen(
             } else {
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).clip(RoundedCornerShape(16.dp)).background(PearlLight).border(1.dp, PearlBorder, RoundedCornerShape(16.dp))
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                            .clip(RoundedCornerShape(16.dp)).background(PearlLight)
+                            .border(1.dp, PearlBorder, RoundedCornerShape(16.dp))
                     ) {
                         s.recent.forEachIndexed { i, txn ->
                             TransactionRow(txn = txn, symbol = s.symbol, showDivider = i < s.recent.size - 1)
@@ -237,7 +235,6 @@ fun DashboardScreen(
                 }
             }
 
-            // Developer Credit
             item {
                 Box(Modifier.fillMaxWidth().padding(20.dp, 32.dp), Alignment.Center) {
                     Text("Soorya × Claude", style = MaterialTheme.typography.labelSmall.copy(color = InkMuted, letterSpacing = 1.sp))
@@ -255,12 +252,9 @@ private fun QuickActionBtn(
     onClick: () -> Unit
 ) {
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(PearlLight)
+        modifier = modifier.clip(RoundedCornerShape(14.dp)).background(PearlLight)
             .border(1.dp, PearlBorder, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
+            .clickable(onClick = onClick).padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
